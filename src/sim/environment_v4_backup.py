@@ -1,13 +1,14 @@
 ﻿"""
-CyberDefenseEnv - Gymnasium environment for the ACDS project (v5 - FINAL).
+CyberDefenseEnv - Gymnasium environment for the ACDS project (v4).
 
-V5 CHANGES (Day 9 - reward rebalance to widen trained-vs-random gap):
-- Lower flat per-step healthy bonus (was 0.05, now 0.04)
-- Higher compromised penalty (was -0.25, now -0.45)
-- Higher damage-prevented reward (was +0.55, now +0.70)
-- Higher action cost (was -0.02, now -0.04)
-
-Everything else (attacks, recovery, thresholds) is v4.
+V4 CHANGES (Day 9 - rebalanced after v3 over-hardened):
+- Attacks per step: 1-3 (was 2-4)
+- Damage: 0.12-0.22 (was 0.18-0.32)
+- Recovery: 0.02 for any uncompromised host (was 0.015 skip attacked)
+  This means: defense over multiple steps can actually save a host.
+- Reward weights moderated
+- Win threshold: >= 7 healthy at step 100
+- Loss threshold: <= 3 healthy (early loss)
 
 Goal: random play -> clearly negative reward
       trained agent -> clearly positive reward
@@ -45,18 +46,18 @@ ATTACK_BRUTE_FORCE = "brute_force"
 ATTACK_EXPLOIT     = "exploit"
 ATTACK_TYPES = [ATTACK_DOS, ATTACK_BRUTE_FORCE, ATTACK_EXPLOIT]
 
-# Reward shaping (v5 - FINAL rebalance)
-R_PER_HEALTHY_STEP    =  +0.04    # was +0.05
-R_PER_COMPROMISED     =  -0.45    # was -0.25
-R_DAMAGE_PREVENTED    =  +0.70    # was +0.55
-R_ACTION_COST         =  -0.04    # was -0.02
+# Reward shaping (v4 - balanced)
+R_PER_HEALTHY_STEP    =  +0.05
+R_PER_COMPROMISED     =  -0.25
+R_DAMAGE_PREVENTED    =  +0.55
+R_ACTION_COST         =  -0.02
 R_TERMINAL_WIN        = +20.0
 R_TERMINAL_LOSS       = -22.0
 
-# Damage model (v4 - unchanged)
+# Damage model (v4 - balanced)
 BASE_ATTACK_DAMAGE = 0.18
 RECOVERY_PER_STEP  = 0.02
-NUM_ATTACKS_PER_STEP_RANGE = (1, 4)
+NUM_ATTACKS_PER_STEP_RANGE = (1, 4)   # 1-3 attacks per step
 WIN_THRESHOLD      = 7
 LOSS_THRESHOLD     = 3
 
@@ -76,7 +77,7 @@ class Attack:
 
 
 class CyberDefenseEnv(gym.Env):
-    """Simulated network where an RL agent defends hosts against attacks (v5)."""
+    """Simulated network where an RL agent defends hosts against attacks (v4)."""
 
     metadata = {"render_modes": ["human"]}
 
@@ -313,7 +314,8 @@ class CyberDefenseEnv(gym.Env):
         }
 
     def _apply_recovery(self) -> None:
-        """Recovery: any uncompromised host heals a bit each step."""
+        """Recovery: any uncompromised host heals a bit each step.
+        Compromised hosts never self-recover."""
         for h in self.net.hosts.values():
             if h.compromised:
                 continue
