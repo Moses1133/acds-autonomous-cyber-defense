@@ -12,6 +12,10 @@ env/
 # Data / models (managed separately)
 data/*
 !data/.gitkeep
+models/*
+!models/.gitkeep
+logs/*
+!logs/.gitkeep
 
 # IDE
 .vscode/
