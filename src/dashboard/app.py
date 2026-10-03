@@ -12,9 +12,9 @@ import sys, os, time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import numpy as np
-import pandas as pd  # force early import to avoid plotly circular import
-import streamlit as st
+import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from stable_baselines3 import PPO
 
 from src.sim.environment import (
@@ -272,5 +272,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
