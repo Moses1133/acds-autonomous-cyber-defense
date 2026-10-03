@@ -61,8 +61,7 @@ The project went through five environment versions:
 4. v4 - rebalanced. Signal returned, gap still small.
 5. v5 (final) - reward rebalance + PPO collapse-prevention hyperparameters.
 
-The lesson: RL is a signal problem, not a code problem. Tuning the
-environment is 80% of applied RL.
+The lesson: RL is a signal problem, not a code problem. Tuning the environment is 80% of applied RL.
 
 ## Setup
 
@@ -79,6 +78,3 @@ environment is 80% of applied RL.
 ## Author
 
 Moses (@Moses1133)
-
-
-
