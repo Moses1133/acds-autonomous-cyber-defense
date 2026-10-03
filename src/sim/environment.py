@@ -1,17 +1,16 @@
 ﻿"""
-CyberDefenseEnv - Gymnasium environment for the ACDS project (v5 - FINAL).
+CyberDefenseEnv - Gymnasium environment for the ACDS project (v2).
 
-V5 CHANGES (Day 9 - reward rebalance to widen trained-vs-random gap):
-- Lower flat per-step healthy bonus (was 0.05, now 0.04)
-- Higher compromised penalty (was -0.25, now -0.45)
-- Higher damage-prevented reward (was +0.55, now +0.70)
-- Higher action cost (was -0.02, now -0.04)
+V2 CHANGES (Day 7):
+- Attacks now target vulnerabilities and open ports, so defense actions matter.
+- Blocking a port reduces damage from port-based attacks.
+- Patching a CVE reduces damage from CVE-based attacks.
+- Healthy hosts slowly regenerate health (recovery).
+- Reward includes damage-prevented partial credit.
+- Win condition: survive max_steps with >= 7 healthy hosts.
+- Lose condition: all hosts compromised (terminated) OR <= 2 healthy (terminated).
 
-Everything else (attacks, recovery, thresholds) is v4.
-
-Goal: random play -> clearly negative reward
-      trained agent -> clearly positive reward
-      wide, measurable gap.
+The goal of V2: create a clean causal chain from action -> reward.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ from src.sim.network import Network
 N_HOSTS = 10
 MAX_STEPS = 100
 
-# Action ids (stable)
+# Action ids (keep stable)
 ACTION_NOOP       = 0
 ACTION_PATCH      = 1
 ACTION_BLOCK_PORT = 2
@@ -40,27 +39,25 @@ ACTION_SCAN       = 4
 N_ACTIONS = 5
 
 # Attack types
-ATTACK_DOS         = "dos"
-ATTACK_BRUTE_FORCE = "brute_force"
-ATTACK_EXPLOIT     = "exploit"
+ATTACK_DOS         = "dos"           # exploits open ports
+ATTACK_BRUTE_FORCE = "brute_force"   # exploits open SSH/RDP ports
+ATTACK_EXPLOIT     = "exploit"       # exploits known CVEs
 ATTACK_TYPES = [ATTACK_DOS, ATTACK_BRUTE_FORCE, ATTACK_EXPLOIT]
 
-# Reward shaping (v5 - FINAL rebalance)
-R_PER_HEALTHY_STEP    =  +0.04    # was +0.05
-R_PER_COMPROMISED     =  -0.45    # was -0.25
-R_DAMAGE_PREVENTED    =  +0.70    # was +0.55
-R_ACTION_COST         =  -0.04    # was -0.02
-R_TERMINAL_WIN        = +20.0
-R_TERMINAL_LOSS       = -22.0
+# Reward shaping
+R_PER_HEALTHY_STEP    =  +0.05   # per healthy host per step (survival)
+R_PER_COMPROMISED     =  -0.20   # per compromised host per step
+R_DAMAGE_PREVENTED    =  +0.50   # bonus * damage absorbed by defense
+R_ACTION_COST         =  -0.02   # small cost per non-noop action
+R_TERMINAL_WIN        = +20.0    # survive with >= 7 healthy hosts
+R_TERMINAL_LOSS       = -20.0    # all hosts compromised
 
-# Damage model (v4 - unchanged)
-BASE_ATTACK_DAMAGE = 0.18
-RECOVERY_PER_STEP  = 0.02
-NUM_ATTACKS_PER_STEP_RANGE = (1, 4)
-WIN_THRESHOLD      = 7
-LOSS_THRESHOLD     = 3
+# Damage model
+BASE_ATTACK_DAMAGE = 0.15        # raw damage before defense
+RECOVERY_PER_STEP  = 0.02        # healthy hosts regen this much per step
+NUM_ATTACKS_PER_STEP_RANGE = (1, 3)   # 1-2 attacks per step
 
-# Vulnerability pool
+# Vulnerability pool (assigned to hosts at reset)
 CVE_POOL = [
     "CVE-2024-0001", "CVE-2024-0002", "CVE-2024-0003",
     "CVE-2024-0004", "CVE-2024-0005", "CVE-2024-0006",
@@ -76,7 +73,7 @@ class Attack:
 
 
 class CyberDefenseEnv(gym.Env):
-    """Simulated network where an RL agent defends hosts against attacks (v5)."""
+    """Simulated network where an RL agent defends hosts against attacks (v2)."""
 
     metadata = {"render_modes": ["human"]}
 
@@ -95,8 +92,12 @@ class CyberDefenseEnv(gym.Env):
         self.action_space = spaces.Discrete(N_ACTIONS)
 
         self._rng = np.random.default_rng()
+
+        # Per-step scratch data
         self._pending_attacks: List[Attack] = []
         self._last_damage_events: List[Dict[str, Any]] = []
+
+    # ---------------- construction ----------------
 
     def _build_network(self, n: int) -> Network:
         net = Network()
@@ -110,14 +111,17 @@ class CyberDefenseEnv(gym.Env):
         return net
 
     def _assign_random_vulnerabilities(self) -> None:
+        """Give each non-router host 1-2 random CVEs at episode start."""
         for h in self.net.hosts.values():
             h.vulnerabilities = []
         candidates = [h for h in self.net.hosts.values() if h.role != "router"]
         for h in candidates:
-            n_cve = int(self._rng.integers(1, 3))
+            n_cve = int(self._rng.integers(1, 3))   # 1 or 2
             h.vulnerabilities = list(
                 self._rng.choice(CVE_POOL, size=n_cve, replace=False)
             )
+
+    # ---------------- gym API ----------------
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
@@ -135,11 +139,20 @@ class CyberDefenseEnv(gym.Env):
         self._step_count += 1
         self.net.current_step = self._step_count
 
+        # 1. Agent acts first (defenses applied)
         action_effect = self._apply_action(int(action))
+
+        # 2. Generate this step's attacks BEFORE resolving them,
+        #    so we can compute damage-prevented at resolution time.
         self._pending_attacks = self._generate_attacks()
+
+        # 3. Resolve attacks: defense state filters damage
         attack_effect = self._resolve_attacks()
+
+        # 4. Recovery for healthy, uncompromised hosts
         self._apply_recovery()
 
+        # 5. Reward & termination
         reward = self._compute_reward(action, action_effect, attack_effect)
 
         terminated, win = self._check_termination()
@@ -147,11 +160,12 @@ class CyberDefenseEnv(gym.Env):
             reward += R_TERMINAL_WIN if win else R_TERMINAL_LOSS
 
         truncated = self._step_count >= self.max_steps
+        # Win condition on truncation: >= 7 healthy hosts
         if truncated:
             n_healthy = sum(1 for h in self.net.hosts.values() if not h.compromised)
-            if n_healthy >= WIN_THRESHOLD:
+            if n_healthy >= 7:
                 reward += R_TERMINAL_WIN
-                terminated = True
+                terminated = True  # count as a terminal win
 
         obs = self._get_obs()
         info = self._get_info()
@@ -164,7 +178,10 @@ class CyberDefenseEnv(gym.Env):
         avg_h = np.mean([h.health for h in self.net.hosts.values()])
         print(f"[step {self._step_count:3d}] compromised={comp} avg_health={avg_h:.2f}")
 
+    # ---------------- action effects ----------------
+
     def _apply_action(self, action: int) -> Dict[str, Any]:
+        """Apply agent's action. Returns a dict describing what happened."""
         effect: Dict[str, Any] = {"action": action, "applied": False}
 
         if action == ACTION_NOOP:
@@ -194,7 +211,7 @@ class CyberDefenseEnv(gym.Env):
         elif action == ACTION_ISOLATE:
             removed = list(target.open_ports)
             target.open_ports = []
-            target.take_damage(0.03)
+            target.take_damage(0.03)   # small cost
             effect.update(applied=True, target=target.id, removed_ports=removed)
 
         elif action == ACTION_SCAN:
@@ -218,20 +235,24 @@ class CyberDefenseEnv(gym.Env):
             return None
         return min(candidates, key=lambda h: (h.health, h.id))
 
+    # ---------------- attack generation & resolution ----------------
+
     def _generate_attacks(self) -> List[Attack]:
+        """Generate attacks. Preference: hosts with unpatched CVEs or open ports."""
         hosts = [h for h in self.net.hosts.values()]
         if not hosts:
             return []
 
         num_attacks = int(self._rng.integers(*NUM_ATTACKS_PER_STEP_RANGE))
 
+        # Weight each host by its "attackability"
         weights = []
         for h in hosts:
             w = 1.0
-            w += 1.5 * len(h.vulnerabilities)
-            w += 0.5 * len(h.open_ports)
+            w += 1.5 * len(h.vulnerabilities)             # CVEs attract exploits
+            w += 0.5 * len(h.open_ports)                  # more ports = more surface
             if h.compromised:
-                w *= 0.3
+                w *= 0.3                                  # less reason to re-attack
             weights.append(w)
         weights = np.array(weights, dtype=np.float64)
         weights /= weights.sum()
@@ -242,18 +263,20 @@ class CyberDefenseEnv(gym.Env):
         attacks: List[Attack] = []
         for idx in chosen:
             h = hosts[int(idx)]
+            # Attack type chosen based on host's surface
             if h.vulnerabilities and (self._rng.random() < 0.6):
                 atk = ATTACK_EXPLOIT
             elif 22 in h.open_ports or 3389 in h.open_ports:
                 atk = ATTACK_BRUTE_FORCE
             else:
                 atk = ATTACK_DOS
-            raw = float(self._rng.uniform(0.12, 0.22))
+            raw = float(self._rng.uniform(0.10, 0.20))
             attacks.append(Attack(target_id=h.id, attack_type=atk, raw_damage=raw))
 
         return attacks
 
     def _resolve_attacks(self) -> Dict[str, Any]:
+        """Apply attacks, but let defense state reduce damage. Track damage prevented."""
         events = []
         total_raw = 0.0
         total_applied = 0.0
@@ -264,6 +287,7 @@ class CyberDefenseEnv(gym.Env):
             multiplier = 1.0
             reasons = []
 
+            # CVE exploit: reduce damage by fraction of CVEs patched
             if atk.attack_type == ATTACK_EXPLOIT:
                 if not host.vulnerabilities:
                     multiplier *= 0.25
@@ -272,6 +296,7 @@ class CyberDefenseEnv(gym.Env):
                     multiplier *= 0.6 + 0.4 * min(len(host.vulnerabilities), 2) / 2
                     reasons.append(f"n_cves={len(host.vulnerabilities)}")
 
+            # Port-based: reduce if ports closed
             elif atk.attack_type in (ATTACK_DOS, ATTACK_BRUTE_FORCE):
                 if not host.open_ports:
                     multiplier *= 0.10
@@ -283,6 +308,7 @@ class CyberDefenseEnv(gym.Env):
             applied = atk.raw_damage * multiplier
             prevented = atk.raw_damage - applied
 
+            # Isolation blocks nearly everything
             if host.role != "router" and not host.open_ports:
                 applied *= 0.3
                 prevented = atk.raw_damage - applied
@@ -313,12 +339,11 @@ class CyberDefenseEnv(gym.Env):
         }
 
     def _apply_recovery(self) -> None:
-        """Recovery: any uncompromised host heals a bit each step."""
         for h in self.net.hosts.values():
-            if h.compromised:
-                continue
-            if h.health < 1.0:
+            if not h.compromised and h.health < 1.0:
                 h.health = min(1.0, h.health + RECOVERY_PER_STEP)
+
+    # ---------------- reward & termination ----------------
 
     def _compute_reward(self, action, action_effect, attack_effect) -> float:
         hosts = list(self.net.hosts.values())
@@ -339,10 +364,12 @@ class CyberDefenseEnv(gym.Env):
         hosts = list(self.net.hosts.values())
         n_healthy = sum(1 for h in hosts if not h.compromised)
         if n_healthy == 0:
-            return True, False
-        if n_healthy <= LOSS_THRESHOLD:
-            return True, False
+            return True, False   # total loss
+        if n_healthy <= 2:
+            return True, False   # functional collapse = loss
         return False, False
+
+    # ---------------- observation & info ----------------
 
     def _get_obs(self) -> np.ndarray:
         v = self.net.to_vector()
