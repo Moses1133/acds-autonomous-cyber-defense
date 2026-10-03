@@ -12,8 +12,6 @@ env/
 # Data / models (managed separately)
 data/*
 !data/.gitkeep
-models/*
-!models/.gitkeep
 logs/*
 !logs/.gitkeep
 
@@ -36,3 +34,9 @@ runs/
 .agents/
 .claude/
 make_curve.py
+
+# Models - track trained checkpoints, ignore training artifacts
+models/*
+!models/.gitkeep
+!models/ppo_acds_v1.zip
+!models/ppo_acds_v1_final.zip
