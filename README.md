@@ -2,9 +2,15 @@
 
 ![CI](https://github.com/Moses1133/acds-autonomous-cyber-defense/actions/workflows/python-app.yml/badge.svg)
 
-![CI](https://github.com/Moses1133/acds-autonomous-cyber-defense/actions/workflows/python-app.yml/badge.svg)
+👉 **[Try the live demo](https://acds-autonomous-cyber-defense-tdj722vnnjndsrknttp9z7.streamlit.app)**
 
 ![CI](https://github.com/Moses1133/acds-autonomous-cyber-defense/actions/workflows/python-app.yml/badge.svg)
+
+👉 **[Try the live demo](https://acds-autonomous-cyber-defense-tdj722vnnjndsrknttp9z7.streamlit.app)**
+
+![CI](https://github.com/Moses1133/acds-autonomous-cyber-defense/actions/workflows/python-app.yml/badge.svg)
+
+👉 **[Try the live demo](https://acds-autonomous-cyber-defense-tdj722vnnjndsrknttp9z7.streamlit.app)**
 
 A reinforcement-learning driven cyber defense simulator where an AI agent
 learns to defend a network of hosts against realistic attacks (DoS, brute
@@ -84,6 +90,8 @@ The lesson: RL is a signal problem, not a code problem. Tuning the environment i
 ## Author
 
 Moses (@Moses1133)
+
+
 
 
 
