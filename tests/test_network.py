@@ -47,7 +47,7 @@ def main():
     print("\n=== Behavior: damage a host ===")
     net.current_step = 1
     net.hosts[0].take_damage(0.8)     # server goes compromised
-    net.log_event("attack", target=0, kind="dos", severity=0.8)
+    net.log_event("attack", target=0, attack_kind="dos", severity=0.8)
     print(f"  host 0 health = {net.hosts[0].health:.2f}, compromised={net.hosts[0].compromised}")
     print(f"  compromised hosts = {[h.id for h in net.compromised_hosts()]}")
     print(f"  healthy hosts = {[h.id for h in net.healthy_hosts()]}")
