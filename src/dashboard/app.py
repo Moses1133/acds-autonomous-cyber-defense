@@ -6,67 +6,78 @@ Run:
     streamlit run src\dashboard\app.py
 
 Then open http://localhost:8501
+
+Note: torch/stable-baselines3 are imported lazily to maximize compatibility
+with cloud Python versions that may not have prebuilt wheels yet.
 """
 
 import sys, os, time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+# Top-level imports must be safe on any Python version
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from stable_baselines3 import PPO
 
-from src.sim.environment import (
-    CyberDefenseEnv,
-    ACTION_NOOP, ACTION_PATCH, ACTION_BLOCK_PORT, ACTION_ISOLATE, ACTION_SCAN,
-)
-
-
-# ---------- constants ----------
 
 ACTION_NAMES = {
-    ACTION_NOOP:       "noop",
-    ACTION_PATCH:      "patch",
-    ACTION_BLOCK_PORT: "block_port",
-    ACTION_ISOLATE:    "isolate",
-    ACTION_SCAN:       "scan",
+    0: "noop",
+    1: "patch",
+    2: "block_port",
+    3: "isolate",
+    4: "scan",
 }
 ACTION_COLORS = {
-    ACTION_NOOP:       "#888",
-    ACTION_PATCH:      "#2ecc71",
-    ACTION_BLOCK_PORT: "#3498db",
-    ACTION_ISOLATE:    "#e67e22",
-    ACTION_SCAN:       "#9b59b6",
+    0: "#888",
+    1: "#2ecc71",
+    2: "#3498db",
+    3: "#e67e22",
+    4: "#9b59b6",
 }
 
-
-# ---------- helpers ----------
 
 @st.cache_resource
 def load_model():
+    """Lazy-load the PPO model. Returns None if deps are unavailable."""
+    try:
+        from stable_baselines3 import PPO
+    except Exception as e:
+        st.error(f"Could not load stable-baselines3: {e}")
+        return None
+
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     path = os.path.join(root, "models", "ppo_acds_v1.zip")
     if not os.path.exists(path):
         path = os.path.join(root, "models", "ppo_acds_v1_final.zip")
     if not os.path.exists(path):
         st.error("No trained model found. Run `python scripts\\train_ppo.py` first.")
-        st.stop()
-    return PPO.load(path)
+        return None
+    try:
+        return PPO.load(path)
+    except Exception as e:
+        st.error(f"Could not load model: {e}")
+        return None
 
 
-def build_network_figure(env, last_action=None, last_target=None):
-    """Star topology: host 0 is the router, all others connect to it."""
+def make_env():
+    """Lazy-load the environment. Returns None if deps are unavailable."""
+    try:
+        from src.sim.environment import CyberDefenseEnv
+        return CyberDefenseEnv(n_hosts=10, max_steps=100)
+    except Exception as e:
+        st.error(f"Could not load environment: {e}")
+        return None
+
+
+def build_network_figure(env, last_target=None):
     hosts = env.net.hosts
-
-    # Position hosts in a circle around the router
     n = len(hosts)
     angles = np.linspace(0, 2 * np.pi, n - 1, endpoint=False)
     positions = {0: (0.0, 0.0)}
     for i, h_id in enumerate([h for h in hosts.keys() if h != 0]):
         positions[h_id] = (np.cos(angles[i]), np.sin(angles[i]))
 
-    # Edges
     edge_x, edge_y = [], []
     for a, b in env.net.links:
         x0, y0 = positions[a]
@@ -76,28 +87,26 @@ def build_network_figure(env, last_action=None, last_target=None):
 
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y, mode="lines",
-        line=dict(width=1.5, color="#bbb"),
+        line=dict(width=1.5, color="#555"),
         hoverinfo="none", showlegend=False,
     )
 
-    # Nodes
     node_x, node_y, node_color, node_text, node_size = [], [], [], [], []
     for h_id, h in hosts.items():
         x, y = positions[h_id]
         node_x.append(x); node_y.append(y)
 
         if h.compromised:
-            color = "#e74c3c"           # red = compromised
+            color = "#e74c3c"
         elif h.health > 0.7:
-            color = "#2ecc71"           # green = healthy
+            color = "#2ecc71"
         elif h.health > 0.3:
-            color = "#f39c12"           # orange = damaged
+            color = "#f39c12"
         else:
-            color = "#c0392b"           # dark red = critical
+            color = "#c0392b"
         node_color.append(color)
 
-        # Border highlight if this is the last action target
-        size = 32 if h_id == last_target else 24
+        size = 34 if h_id == last_target else 24
         node_size.append(size)
 
         node_text.append(
@@ -115,7 +124,7 @@ def build_network_figure(env, last_action=None, last_target=None):
         textposition="middle center",
         textfont=dict(color="white", size=11),
         marker=dict(size=node_size, color=node_color,
-                    line=dict(width=2, color="#333")),
+                    line=dict(width=2, color="#222")),
         hovertext=node_text, hoverinfo="text",
         showlegend=False,
     )
@@ -124,7 +133,7 @@ def build_network_figure(env, last_action=None, last_target=None):
     fig.update_layout(
         showlegend=False,
         margin=dict(l=10, r=10, t=20, b=10),
-        height=420,
+        height=430,
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False,
                    scaleanchor="x", scaleratio=1),
@@ -134,56 +143,20 @@ def build_network_figure(env, last_action=None, last_target=None):
     return fig
 
 
-def render_metrics(placeholder, step, reward_total, n_healthy, n_compromised,
-                   last_action, last_target):
-    with placeholder.container():
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Step", f"{step} / 100")
-        c2.metric("Total Reward", f"{reward_total:+.2f}")
-        c3.metric("Healthy Hosts", f"{n_healthy}")
-        c4.metric("Compromised", f"{n_compromised}", delta=None)
-        if last_action is not None:
-            name = ACTION_NAMES.get(int(last_action), f"action {last_action}")
-            color = ACTION_COLORS.get(int(last_action), "#888")
-            st.markdown(
-                f"Last action: <span style='color:{color}; font-weight:bold; "
-                f"font-size:1.1em'>{name}</span>"
-                + (f" → target host {last_target}" if last_target is not None else ""),
-                unsafe_allow_html=True,
-            )
-
-
-def render_event_log(placeholder, events):
-    with placeholder.container():
-        if not events:
-            st.info("No events yet.")
-            return
-        rows = []
-        for (t, kind, payload) in events[-12:]:
-            payload_s = ", ".join(f"{k}={v}" for k, v in payload.items()
-                                  if k not in ("action",))
-            rows.append({"step": t, "kind": kind, "details": payload_s})
-        st.dataframe(rows, width='stretch', hide_index=True)
-
-
-# ---------- main app ----------
-
 def main():
     st.set_page_config(page_title="ACDS Dashboard", page_icon="🛡️", layout="wide")
-
     st.title("🛡️ ACDS - Autonomous Cyber Defense Simulator")
     st.caption("Live demo: trained PPO agent defending a 10-host network.")
 
-    # Sidebar
     with st.sidebar:
         st.header("Controls")
         episodes = st.slider("Episodes to run", 1, 10, 1)
         delay = st.slider("Step delay (seconds)", 0.0, 0.5, 0.05, 0.01)
         st.divider()
         st.markdown("**Legend**")
-        st.markdown("🟢 Healthy host")
-        st.markdown("🟡 Damaged host")
-        st.markdown("🔴 Compromised host")
+        st.markdown("🟢 Healthy")
+        st.markdown("🟡 Damaged")
+        st.markdown("🔴 Compromised")
         st.divider()
         st.markdown("**Actions**")
         for a, name in ACTION_NAMES.items():
@@ -193,24 +166,26 @@ def main():
                 unsafe_allow_html=True,
             )
 
-    model = load_model()
-    env = CyberDefenseEnv(n_hosts=10, max_steps=100)
+    env = make_env()
+    if env is None:
+        st.stop()
+
+    net_ph = st.empty()
+    met_ph = st.empty()
+    log_ph = st.empty()
+
+    net_ph.plotly_chart(build_network_figure(env),
+                        use_container_width=True, key="init")
 
     run_btn = st.button("▶️ Run Episode(s)", type="primary")
 
-    net_placeholder    = st.empty()
-    metrics_placeholder = st.empty()
-    log_placeholder    = st.empty()
-
-    # Initial render (before running)
-    fig = build_network_figure(env)
-    net_placeholder.plotly_chart(fig, width='stretch',
-                                 key="initial_fig")
-
     if not run_btn:
-        st.info("Click **Run Episode(s)** to watch the trained agent defend "
-                "the network.")
+        st.info("Click **Run Episode(s)** to watch the trained agent defend the network.")
         return
+
+    model = load_model()
+    if model is None:
+        st.stop()
 
     all_rewards = []
     for ep in range(episodes):
@@ -225,7 +200,6 @@ def main():
             action, _ = model.predict(obs, deterministic=True)
             action = int(action)
 
-            # Peek at what the action will target (before stepping)
             target = env._most_at_risk_host()
             last_target = target.id if target is not None else None
 
@@ -233,22 +207,35 @@ def main():
             total_reward += reward
             last_action = action
 
-            # Update network graph
-            fig = build_network_figure(env, last_action=action,
-                                        last_target=last_target)
-            net_placeholder.plotly_chart(fig, width='stretch',
-                                         key=f"fig_{ep}_{t}")
-
-            # Update metrics
-            render_metrics(
-                metrics_placeholder,
-                step=t + 1, reward_total=total_reward,
-                n_healthy=info["n_healthy"], n_compromised=info["n_compromised"],
-                last_action=action, last_target=last_target,
+            net_ph.plotly_chart(
+                build_network_figure(env, last_target=last_target),
+                use_container_width=True, key=f"fig_{ep}_{t}",
             )
 
-            # Update event log
-            render_event_log(log_placeholder, env.net.recent_events(12))
+            with met_ph.container():
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Step", f"{t + 1} / 100")
+                c2.metric("Reward", f"{total_reward:+.2f}")
+                c3.metric("Healthy", info["n_healthy"])
+                c4.metric("Compromised", info["n_compromised"])
+                if last_action is not None:
+                    name = ACTION_NAMES.get(last_action, "?")
+                    color = ACTION_COLORS.get(last_action, "#888")
+                    st.markdown(
+                        f"Last action: <span style='color:{color}; "
+                        f"font-weight:bold; font-size:1.1em'>{name}</span>"
+                        + (f" → host {last_target}" if last_target is not None else ""),
+                        unsafe_allow_html=True,
+                    )
+
+            with log_ph.container():
+                events = env.net.recent_events(12)
+                if events:
+                    rows = [{"step": t_, "kind": k,
+                             "details": ", ".join(f"{kk}={vv}" for kk, vv in p.items()
+                                                  if kk != "action")}
+                            for t_, k, p in events]
+                    st.dataframe(rows, use_container_width=True, hide_index=True)
 
             if delay > 0:
                 time.sleep(delay)
@@ -257,21 +244,15 @@ def main():
                 break
 
         all_rewards.append(total_reward)
-
         if terminated:
-            st.warning("Episode terminated early - network collapsed.")
+            st.warning(f"Episode {ep + 1} terminated early.")
         else:
-            st.success(f"Episode {ep + 1} done. "
-                       f"Compromised at end: {info['n_compromised']}")
+            st.success(f"Episode {ep + 1} done. Compromised: {info['n_compromised']}")
 
     st.divider()
     st.subheader("Summary")
-    st.write(f"Mean reward across {episodes} episode(s): "
-             f"**{np.mean(all_rewards):+.2f}**")
+    st.write(f"Mean reward over {episodes} episode(s): **{np.mean(all_rewards):+.2f}**")
 
 
 if __name__ == "__main__":
     main()
-
-
-
