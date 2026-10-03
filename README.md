@@ -39,6 +39,18 @@ Trained on 200k timesteps of PPO on the v5 environment.
 Key finding: PPO discovered block_port is the dominant defensive action.
 The policy achieves near-zero host compromise across all evaluation seeds.
 
+## Live Dashboard
+
+![Dashboard](docs/dashboard_screenshot.png)
+
+Run the interactive demo:
+
+    streamlit run src\dashboard\app.py
+
+Then open http://localhost:8501
+
+Click **Run Episode(s)** to watch the trained agent defend the network in real time.
+
 ## What Was Hard
 
 The project went through five environment versions:
@@ -67,5 +79,6 @@ environment is 80% of applied RL.
 ## Author
 
 Moses (@Moses1133)
+
 
 
