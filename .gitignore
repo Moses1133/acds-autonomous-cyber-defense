@@ -31,3 +31,8 @@ Thumbs.db
 # Logs
 *.log
 runs/
+
+# Streamlit agent skills (environment-specific symlinks)
+.agents/
+.claude/
+make_curve.py
