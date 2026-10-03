@@ -27,6 +27,8 @@ force, CVE exploits).
 
 Trained on 200k timesteps of PPO on the v5 environment.
 
+![Training curve](docs/training_curve.png)
+
 | Metric                              | Random | Trained    | Improvement  |
 |-------------------------------------|--------|------------|--------------|
 | Mean episode reward                 | +69.54 | **+76.96** | **+7.42**    |
@@ -65,4 +67,5 @@ environment is 80% of applied RL.
 ## Author
 
 Moses (@Moses1133)
+
 
