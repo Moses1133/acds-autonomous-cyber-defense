@@ -208,17 +208,23 @@ def main():
         last_target = None
 
         for t in range(env.max_steps):
-            action, _ = model.predict(obs, deterministic=True)
-            if hasattr(action, "__len__"):
+            action_batched, _ = model.predict(obs[None, :], deterministic=True)
+            action = action_batched[0]
+
+            # Branch on action space type: Discrete (v5) vs MultiDiscrete (v6/v7)
+            if hasattr(model.action_space, "nvec"):
                 action_type = int(action[0])
                 target_host = int(action[1])
+                step_action = action
             else:
                 action_type = int(action)
+                target_host = None
+                step_action = int(action)
 
             target = env._most_at_risk_host()
             last_target = target.id if target is not None else None
 
-            obs, reward, terminated, truncated, info = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(step_action)
             total_reward += reward
             last_action = action_type
 
@@ -270,3 +276,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
