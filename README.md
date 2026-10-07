@@ -41,17 +41,21 @@ Fair evaluation on 20 independent seeds (1000-1019):
 
 | Policy | Mean reward | Compromised | Unique actions |
 |--------|------------|-------------|----------------|
-| **PPO (800k steps)** | **+76.31** | **0.00** | **5 / 5** |
-| PPO (400k steps) | +75.32 | 0.00 | 5 / 5 |
+| **PPO (best checkpoint)** | **+76.31** | **0.00** | **5 / 5** |
+| PPO (final checkpoint) | +76.49 | 0.00 | 5 / 5 |
 | round_robin heuristic | +81.91 | 0.50 | 1 / 5 |
 | Random | +23.69 | 2.20 | - |
 | noop | -45.72 | 7.15 | 1 / 5 |
 | isolate_worst heuristic | -76.45 | 5.95 | 1 / 5 |
 
+> Both v7 checkpoints land within noise of each other (+76.3 vs +76.5, std ~ 1.0 over 20 seeds). The best checkpoint is what the dashboard loads by default.
+>
+> The Random row is a single 20-episode sample; the random policy is unseeded, so it varies +/-10 between runs. Trained-agent numbers are deterministic.
+
 **Key results:**
 - **+52.6 reward gap over random** (trained vs random)
 - **0.00 compromised hosts** across all 20 eval seeds (vs 2.20 for random)
-- **PPO uses all 5 action types** (block_port 37.7%, isolate 47.1%, patch 6.7%, noop 5.7%, scan 2.8%)
+- **PPO uses all 5 action types** (best checkpoint: block_port 37.7%, isolate 47.1%, patch 6.7%, noop 5.7%, scan 2.8%)
 
 ### On the round_robin heuristic
 
@@ -206,3 +210,4 @@ generator works without the full dataset.
 ## Author
 
 Moses ([@Moses1133](https://github.com/Moses1133))
+
