@@ -1,0 +1,250 @@
+{
+  "source": "CICIDS2017 (Canadian Institute for Cybersecurity)",
+  "url": "https://www.unb.ca/cic/datasets/ids-2017.html",
+  "files_processed": [
+    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+    "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+    "Friday-WorkingHours-Morning.pcap_ISCX.csv",
+    "Monday-WorkingHours.pcap_ISCX.csv",
+    "Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv",
+    "Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
+    "Tuesday-WorkingHours.pcap_ISCX.csv",
+    "Wednesday-workingHours.pcap_ISCX.csv"
+  ],
+  "groups": {
+    "dos": {
+      "n_flows_total": 380688,
+      "n_labels": 5,
+      "labels": [
+        "DDoS",
+        "DoS slowloris",
+        "DoS Slowhttptest",
+        "DoS Hulk",
+        "DoS GoldenEye"
+      ],
+      "features": {
+        "Flow Duration": {
+          "mean": 42287760.527670726,
+          "std": 38064096.4323969,
+          "p50": 51719322.0,
+          "p95": 102126266.63
+        },
+        "Total Fwd Packets": {
+          "mean": 5.547079390952296,
+          "std": 3.310233820356762,
+          "p50": 5.4,
+          "p95": 10.2
+        },
+        "Total Backward Packets": {
+          "mean": 2.759039103086374,
+          "std": 2.0893110896773304,
+          "p50": 3.4,
+          "p95": 5.2
+        },
+        "Flow Bytes/s": {
+          "mean": 4355509.937880447,
+          "std": 27378424.229373015,
+          "p50": 186.76637274470002,
+          "p95": 2142354.5904716486
+        },
+        "Flow Packets/s": {
+          "mean": 41832.29982563392,
+          "std": 122598.38536015304,
+          "p50": 0.8048301113999999,
+          "p95": 210869.36457803642
+        },
+        "Fwd Packet Length Mean": {
+          "mean": 66.18112298940488,
+          "std": 115.64307340524431,
+          "p50": 22.75,
+          "p95": 305.7913397053505
+        }
+      }
+    },
+    "recon": {
+      "n_flows_total": 158930,
+      "n_labels": 1,
+      "labels": [
+        "PortScan"
+      ],
+      "features": {
+        "Flow Duration": {
+          "mean": 82820.22837098094,
+          "std": 2325854.5354291853,
+          "p50": 47.0,
+          "p95": 90.0
+        },
+        "Total Fwd Packets": {
+          "mean": 1.0175800666960297,
+          "std": 0.42559423167524724,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "Total Backward Packets": {
+          "mean": 1.0049581576794815,
+          "std": 0.14548975731485003,
+          "p50": 1.0,
+          "p95": 1.0
+        },
+        "Flow Bytes/s": {
+          "mean": 220359.75168645574,
+          "std": 459863.69150827534,
+          "p50": 139534.8837,
+          "p95": 500000.0
+        },
+        "Flow Packets/s": {
+          "mean": 62690.56565466473,
+          "std": 127930.00034919329,
+          "p50": 42553.19149,
+          "p95": 153846.1538
+        },
+        "Fwd Packet Length Mean": {
+          "mean": 1.0094433608087838,
+          "std": 1.3106759272651924,
+          "p50": 0.0,
+          "p95": 2.0
+        }
+      }
+    },
+    "bot": {
+      "n_flows_total": 2013,
+      "n_labels": 3,
+      "labels": [
+        "Bot",
+        "Infiltration",
+        "Heartbleed"
+      ],
+      "features": {
+        "Flow Duration": {
+          "mean": 63146123.57228953,
+          "std": 23625063.38850281,
+          "p50": 70840247.5,
+          "p95": 80107896.83333333
+        },
+        "Total Fwd Packets": {
+          "mean": 1139.0477631520357,
+          "std": 723.0244407463823,
+          "p50": 940.3333333333334,
+          "p95": 2254.0833333333335
+        },
+        "Total Backward Packets": {
+          "mean": 910.0455915547473,
+          "std": 669.2579685080804,
+          "p50": 699.3333333333334,
+          "p95": 2025.9166666666667
+        },
+        "Flow Bytes/s": {
+          "mean": 131063.38905530686,
+          "std": 341215.5656320991,
+          "p50": 23789.179268683336,
+          "p95": 438488.84128333343
+        },
+        "Flow Packets/s": {
+          "mean": 16567.300391909237,
+          "std": 56306.93278855067,
+          "p50": 47.724936705333334,
+          "p95": 55674.47443408917
+        },
+        "Fwd Packet Length Mean": {
+          "mean": 138.51122594058882,
+          "std": 264.0207606262565,
+          "p50": 100.05231539900001,
+          "p95": 194.78664333566667
+        }
+      }
+    },
+    "web": {
+      "n_flows_total": 2180,
+      "n_labels": 3,
+      "labels": [
+        "Web Attack \u00ef\u00bf\u00bd Brute Force",
+        "Web Attack \u00ef\u00bf\u00bd XSS",
+        "Web Attack \u00ef\u00bf\u00bd Sql Injection"
+      ],
+      "features": {
+        "Flow Duration": {
+          "mean": 5363979.001161781,
+          "std": 6185192.834912587,
+          "p50": 5319118.5,
+          "p95": 6966717.899999999
+        },
+        "Total Fwd Packets": {
+          "mean": 7.774197494821291,
+          "std": 24.995826820579754,
+          "p50": 3.3333333333333335,
+          "p95": 5.7000000000000455
+        },
+        "Total Backward Packets": {
+          "mean": 4.098896583044181,
+          "std": 13.105378452611369,
+          "p50": 1.6666666666666667,
+          "p95": 4.0
+        },
+        "Flow Bytes/s": {
+          "mean": 200.45405174475187,
+          "std": 559.3407147820567,
+          "p50": 70.07329346666667,
+          "p95": 661.3851332400085
+        },
+        "Flow Packets/s": {
+          "mean": 6014.987867380752,
+          "std": 17157.680239442216,
+          "p50": 1.1591880518333333,
+          "p95": 26037.804262966558
+        },
+        "Fwd Packet Length Mean": {
+          "mean": 31.84160131773274,
+          "std": 52.40913799420898,
+          "p50": 35.800000000000004,
+          "p95": 100.08333333333333
+        }
+      }
+    },
+    "brute_force": {
+      "n_flows_total": 13835,
+      "n_labels": 2,
+      "labels": [
+        "FTP-Patator",
+        "SSH-Patator"
+      ],
+      "features": {
+        "Flow Duration": {
+          "mean": 5341105.711800635,
+          "std": 5521566.530162619,
+          "p50": 3259710.0,
+          "p95": 11640866.45
+        },
+        "Total Fwd Packets": {
+          "mean": 8.310977685593109,
+          "std": 6.811570043283283,
+          "p50": 10.0,
+          "p95": 16.0
+        },
+        "Total Backward Packets": {
+          "mean": 12.170347292158626,
+          "std": 11.358062871422351,
+          "p50": 9.0,
+          "p95": 24.0
+        },
+        "Flow Bytes/s": {
+          "mean": 399952.20545641874,
+          "std": 1068934.2299190438,
+          "p50": 182.15368081999998,
+          "p95": 2333548.1371948603
+        },
+        "Flow Packets/s": {
+          "mean": 65662.06134862993,
+          "std": 169470.74652408756,
+          "p50": 6.447339724500001,
+          "p95": 356060.60607499996
+        },
+        "Fwd Packet Length Mean": {
+          "mean": 28.633052403742695,
+          "std": 25.141722087014458,
+          "p50": 41.510416665,
+          "p95": 59.175438585
+        }
+      }
+    }
+  }
+}
