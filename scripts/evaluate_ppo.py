@@ -57,6 +57,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", default="v5", choices=["v5", "v6", "v7"])
     parser.add_argument("--episodes", type=int, default=N_EPISODES)
+    parser.add_argument("--model", default=None,
+                        help="Path to model .zip. Defaults to models/ppo_acds_<env>.zip")
     args = parser.parse_args()
 
     version = args.env
@@ -142,4 +144,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
