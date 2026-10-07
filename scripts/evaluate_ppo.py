@@ -66,7 +66,15 @@ def main():
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
     # Find model
-    model_path = os.path.join(root, "models", f"{model_name}.zip")
+    # Find model -- honor --model if given
+    if args.model:
+        model_path = args.model
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"--model path does not exist: {model_path}")
+    else:
+        model_path = os.path.join(root, "models", f"{model_name}.zip")
+        if not os.path.exists(model_path):
+            model_path = os.path.join(root, "models", f"{model_name}_final.zip")
     if not os.path.exists(model_path):
         model_path = os.path.join(root, "models", f"{model_name}_final.zip")
     if not os.path.exists(model_path):
@@ -144,5 +152,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
