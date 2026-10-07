@@ -40,3 +40,6 @@ models/*
 !models/.gitkeep
 !models/ppo_acds_v1.zip
 !models/ppo_acds_v1_final.zip
+
+# CICIDS2017 dataset - large, regenerate with scripts/extract_cicids_stats.py
+data/cicids/
