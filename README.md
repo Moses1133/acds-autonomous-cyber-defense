@@ -16,8 +16,7 @@ learns to defend a 10-host network against attacks calibrated to the
   statistics extracted from 2.83M labeled flows** in the CICIDS2017 dataset
 - Uses **multi-discrete action space**: the agent picks both `action_type`
   AND `target_host` each step
-- Attacks follow a **3-stage kill chain** (recon -> exploit -> escalate) so the
-  agent must anticipate escalation
+- Attacks follow a **3-stage kill chain** (recon -> exploit -> escalate)
 
 ### Actions
 
@@ -36,28 +35,61 @@ learns to defend a 10-host network against attacks calibrated to the
 - **ML/AI layer** - PPO (Stable-Baselines3) with `MultiDiscrete([5, 10])`
 - **Dashboard** - Streamlit live visualization
 
-## Results (v7, 400k PPO timesteps)
+## Results (v7, 800k PPO timesteps)
 
-| Metric | Random | Trained v7 | Improvement |
-|--------|--------|-----------|-------------|
-| Mean episode reward | +26.80 | **+75.32** | **+48.52** |
-| Hosts compromised at end | 2.10 | **0.00** | **100% reduction** |
-| Episode length | ~90 | **100** | full survival |
-| Reward std (20 seeds) | 5-10 | **0.91** | very stable |
-| Value fn `explained_variance` | - | **0.85** | strong signal |
+Fair evaluation on 20 independent seeds (1000-1019):
 
-### What the agent learned
+| Policy | Mean reward | Compromised | Unique actions |
+|--------|------------|-------------|----------------|
+| **PPO (800k steps)** | **+76.31** | **0.00** | **5 / 5** |
+| PPO (400k steps) | +75.32 | 0.00 | 5 / 5 |
+| round_robin heuristic | +81.91 | 0.50 | 1 / 5 |
+| Random | +23.69 | 2.20 | - |
+| noop | -45.72 | 7.15 | 1 / 5 |
+| isolate_worst heuristic | -76.45 | 5.95 | 1 / 5 |
 
-The trained policy uses **`isolate` 74% of the time**, `noop` 25%, with
-negligible `patch`/`block_port`/`scan`. Interpretation: in this reward
-landscape, isolating the most-at-risk host dominates because it removes
-*all* attack vectors at once. This mirrors real-world "kill switch" defense
-tactics - powerful but expensive, which is why production systems gate it
-behind human approval.
+**Key results:**
+- **+52.6 reward gap over random** (trained vs random)
+- **0.00 compromised hosts** across all 20 eval seeds (vs 2.20 for random)
+- **PPO uses all 5 action types** (block_port 37.7%, isolate 47.1%, patch 6.7%, noop 5.7%, scan 2.8%)
+
+### On the round_robin heuristic
+
+A simple **`round_robin` heuristic** — cycle through hosts isolating each
+in turn — scores **+81.9**, slightly higher than PPO's +76.3.
+
+**Why this matters:** the environment has a **simple, non-obvious dominant
+strategy**. By step 10, round-robin has systematically isolated all hosts,
+making the network largely attack-immune. In contrast, the "obvious"
+strategy of isolating the *lowest-health* host (`isolate_worst`, -76.5)
+performs poorly because attacks are distributed across hosts — playing
+whack-a-mole leaves the rest of the network exposed.
+
+**This is a legitimate finding** and illustrates the value of running
+baselines before claiming ML superiority. On this environment, a
+well-designed heuristic is competitive with RL.
 
 ### Training curve
 
 ![Training curve](docs/training_curve.png)
+
+## Baseline Comparison
+
+To make the comparison rigorous, we benchmarked the trained PPO agent
+against **6 hand-designed heuristics** on the v7 environment:
+
+| Heuristic | Strategy |
+|-----------|----------|
+| `noop` | do nothing every step |
+| `random` | sample random (action, target) pairs |
+| `isolate_worst` | isolate the host with lowest health |
+| `block_worst` | block one port on lowest-health host |
+| `patch_most_vuln` | patch CVE on host with most CVEs |
+| `round_robin` | isolate hosts in a fixed cycle |
+
+Regenerate with:
+
+    python scripts\baseline_heuristics.py --env v7 --episodes 20
 
 ## Live Dashboard
 
@@ -100,8 +132,8 @@ The project went through **seven environment versions**:
    the discrete action space.
 6. **v6** - switched to `MultiDiscrete([5, 10])` and added kill-chain attacks.
    Big jump in expressiveness but attacks were still synthetic.
-7. **v7** - added CICIDS2017-calibrated attacks + real flow statistics.
-   **Final result: +48.5 gap, zero hosts compromised.**
+7. **v7** - added CICIDS2017-calibrated attacks. Result: +76.3 reward,
+   zero compromised hosts, competitive with the best heuristic.
 
 The lesson: **RL is a signal problem, not a code problem.** The environment
 must give the agent a causal chain from action to reward, the reward must be
@@ -132,6 +164,10 @@ generator works without the full dataset.
 
     python scripts\evaluate_ppo.py --env v7 --episodes 20
 
+**Baseline comparison:**
+
+    python scripts\baseline_heuristics.py --env v7 --episodes 20
+
 **Dashboard:**
 
     streamlit run src\dashboard\app.py
@@ -159,6 +195,7 @@ generator works without the full dataset.
     |-- scripts/
     |   |-- train_ppo.py
     |   |-- evaluate_ppo.py
+    |   |-- baseline_heuristics.py
     |   |-- extract_cicids_stats.py
     |-- tests/
     |-- data/
