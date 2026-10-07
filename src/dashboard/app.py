@@ -39,29 +39,43 @@ ACTION_COLORS = {
 
 @st.cache_resource
 def load_model():
-    """Lazy-load the PPO model. Returns None if deps are unavailable."""
+    """Lazy-load the PPO model. Tries v7 first, then v5.
+    Returns (model, version) or (None, None)."""
     try:
         from stable_baselines3 import PPO
     except Exception as e:
         st.error(f"Could not load stable-baselines3: {e}")
-        return None
+        return None, None
 
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    path = os.path.join(root, "models", "ppo_acds_v1.zip")
-    if not os.path.exists(path):
-        path = os.path.join(root, "models", "ppo_acds_v1_final.zip")
-    if not os.path.exists(path):
-        st.error("No trained model found. Run `python scripts\\train_ppo.py` first.")
-        return None
-    try:
-        return PPO.load(path)
-    except Exception as e:
-        st.error(f"Could not load model: {e}")
-        return None
+
+    # Prefer v7 (best result), then v6, then v5
+    for version, name in [("v7", "ppo_acds_v7"),
+                          ("v6", "ppo_acds_v6"),
+                          ("v5", "ppo_acds_v1")]:
+        path = os.path.join(root, "models", f"{name}.zip")
+        if not os.path.exists(path):
+            path = os.path.join(root, "models", f"{name}_final.zip")
+        if os.path.exists(path):
+            try:
+                return PPO.load(path), version
+            except Exception as e:
+                st.error(f"Could not load model {name}: {e}")
+                return None, None
+
+    st.error("No trained model found. Run `python scripts\\train_ppo.py --env v7` first.")
+    return None, None
 
 
 def make_env():
-    """Lazy-load the environment. Returns None if deps are unavailable."""
+    """Lazy-load the environment. Prefers v7 (CICIDS-calibrated) if available,
+    falls back to v5. Returns None if deps are unavailable."""
+    try:
+        # Prefer v7 (best trained model, CICIDS-calibrated attacks)
+        from src.sim.environment_v7 import CyberDefenseEnvV7
+        return CyberDefenseEnvV7(n_hosts=10, max_steps=100)
+    except Exception:
+        pass
     try:
         from src.sim.environment import CyberDefenseEnv
         return CyberDefenseEnv(n_hosts=10, max_steps=100)
@@ -146,7 +160,6 @@ def build_network_figure(env, last_target=None):
 def main():
     st.set_page_config(page_title="ACDS Dashboard", page_icon="🛡️", layout="wide")
     st.title("🛡️ ACDS - Autonomous Cyber Defense Simulator")
-    st.caption("Live demo: trained PPO agent defending a 10-host network.")
 
     with st.sidebar:
         st.header("Controls")
@@ -183,7 +196,8 @@ def main():
         st.info("Click **Run Episode(s)** to watch the trained agent defend the network.")
         return
 
-    model = load_model()
+    model, model_version = load_model()
+    st.caption(f"Live demo: trained PPO agent ({model_version}) defending a 10-host network against CICIDS2017-calibrated attacks.")
     if model is None:
         st.stop()
 
@@ -198,14 +212,21 @@ def main():
 
         for t in range(env.max_steps):
             action, _ = model.predict(obs, deterministic=True)
-            action = int(action)
+            # v7/v6 use MultiDiscrete([action_type, target_host]) → array of 2
+            # v5 uses Discrete(5) → single int
+            if hasattr(action, "__len__"):
+                action_type = int(action[0])
+                target_host = int(action[1])
+            else:
+                action_type = int(action)
+                target_host = None
 
             target = env._most_at_risk_host()
             last_target = target.id if target is not None else None
 
             obs, reward, terminated, truncated, info = env.step(action)
             total_reward += reward
-            last_action = action
+            last_action = action_type
 
             net_ph.plotly_chart(
                 build_network_figure(env, last_target=last_target),
@@ -219,8 +240,8 @@ def main():
                 c3.metric("Healthy", info["n_healthy"])
                 c4.metric("Compromised", info["n_compromised"])
                 if last_action is not None:
-                    name = ACTION_NAMES.get(last_action, "?")
-                    color = ACTION_COLORS.get(last_action, "#888")
+                    name = ACTION_NAMES.get(action_type, "?")
+                    color = ACTION_COLORS.get(action_type, "#888")
                     st.markdown(
                         f"Last action: <span style='color:{color}; "
                         f"font-weight:bold; font-size:1.1em'>{name}</span>"
@@ -256,3 +277,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
