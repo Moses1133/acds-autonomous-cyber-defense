@@ -1,4 +1,4 @@
-﻿"""
+"""
 Baseline heuristics for ACDS - non-learning defenders.
 
 Run: python scripts\baseline_heuristics.py --env v7

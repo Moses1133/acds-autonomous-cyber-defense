@@ -1,4 +1,4 @@
-﻿"""
+"""
 ACDS Dashboard - live visualization of the trained PPO agent defending
 the simulated network.
 
@@ -192,7 +192,7 @@ def main():
     log_ph = st.empty()
 
     net_ph.plotly_chart(build_network_figure(env),
-                        use_container_width=True, key="init")
+                        width="stretch", key="init")
 
     run_btn = st.button("▶️ Run Episode(s)", type="primary")
     if not run_btn:
@@ -230,7 +230,7 @@ def main():
 
             net_ph.plotly_chart(
                 build_network_figure(env, last_target=last_target),
-                use_container_width=True, key=f"fig_{ep}_{t}",
+                width="stretch", key=f"fig_{ep}_{t}",
             )
 
             with met_ph.container():
@@ -256,7 +256,7 @@ def main():
                              "details": ", ".join(f"{kk}={vv}" for kk, vv in p.items()
                                                   if kk != "action")}
                             for t_, k, p in events]
-                    st.dataframe(rows, use_container_width=True, hide_index=True)
+                    st.dataframe(rows, width="stretch", hide_index=True)
 
             if delay > 0:
                 time.sleep(delay)
@@ -276,6 +276,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

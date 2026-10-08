@@ -1,4 +1,4 @@
-﻿"""
+"""
 Evaluate a trained PPO model on CyberDefenseEnv (v5 or v6).
 
 Usage:

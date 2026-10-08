@@ -1,4 +1,4 @@
-﻿# ACDS - Autonomous Cyber Defense Simulator
+# ACDS - Autonomous Cyber Defense Simulator
 
 ![CI](https://github.com/Moses1133/acds-autonomous-cyber-defense/actions/workflows/python-app.yml/badge.svg)
 
