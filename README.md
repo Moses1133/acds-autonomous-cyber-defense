@@ -145,6 +145,14 @@ must give the agent a causal chain from action to reward, the reward must be
 tuned to allow learning, and the action space must be expressive enough to
 solve the task. Tuning these is 80% of applied RL.
 
+## Deployment Analysis
+
+This project is a research prototype, not a production system. See
+[`docs/deployment_analysis.md`](docs/deployment_analysis.md) for a
+detailed discussion of what real-world deployment would require --
+telemetry pipelines, blast-radius control, safety and auditability,
+adversarial robustness, and realistic timelines.
+
 ## Setup
 
     python -m venv .venv
